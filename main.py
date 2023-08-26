@@ -110,20 +110,27 @@ def read_csv(csv_filepath: str):
     return list(map(lambda x: int(x), bytes_str))
 
 
+def read_hex(hex_filepath: str):
+    file_handle = open(hex_filepath, 'r')
+    file = file_handle.read()
+    bytes_str = file.strip().split(' ')
+    return list(map(lambda x: int(x, 16), bytes_str))
+
+
 if __name__ == '__main__':
-    filepath = sys.argv[1]
+    data_path = sys.argv[1]
     template_path = sys.argv[2]
-    data = read_csv(filepath)
+    result_path = sys.argv[3]
+    data = read_hex(data_path)
 
     builder = MCRomBuilder(template_path=template_path)
-    builder.least_bit_coords = (157, 80, 184)
-    builder.second_bit_coords = (157, 80, 186)
-    builder.most_bit_coords = (192, 94, 246)
+    # builder.least_bit_coords = (157, 80, 184)
+    # builder.second_bit_coords = (157, 80, 186)
+    # builder.most_bit_coords = (192, 94, 246)
 
     for i in range(len(data)):
         builder.write_byte(data[i], i)
 
-    result_path = 'schems/test_rom.schem'
     builder.save(result_path)
 
     inspect_schem(template_path)
