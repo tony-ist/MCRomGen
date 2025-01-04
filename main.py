@@ -70,11 +70,9 @@ class MCRomBuilder:
                 # Swap x and z and adjust sign to write bytes in different directions
                 x = -self.outer_offsets[j]
                 z = -self.inner_offsets[i]
-                self.write_byte(Coord(x, y, z), data[data_i])
+                byte = data[data_i] if data_i < len(data) else 0
+                self.write_byte(Coord(x, y, z), byte)
                 data_i += 1
-
-                if data_i >= len(data):
-                    return
 
     def save(self, filename: str):
         if filename.endswith('.schem'):
