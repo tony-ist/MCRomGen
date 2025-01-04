@@ -14,16 +14,6 @@ GREEN_WOOL = 'minecraft:green_wool'
 ROM_SIZE_BYTES = 256
 
 
-class Vector:
-    x: int
-    y: int
-    z: int
-
-    def __init__(self, x, y, z):
-        self.x = x
-        self.y = y
-        self.z = z
-
 class Coord:
     x: int
     y: int
@@ -34,72 +24,31 @@ class Coord:
         self.y = y
         self.z = z
 
-    def add(self, vector: Vector):
-        return Coord(self.x + vector.x, self.y + vector.y, self.z + vector.z)
-
 
 class MCRomBuilder:
-    template: mcschematic.MCSchematic
     result: mcschematic.MCSchematic
     true_block: str
     false_block: str
-    start_block: str
-    end_block: str
-    second_block: str
-    bounds_from: Coord
-    bounds_to: Coord
+    inner_offsets: List[int]
+    outer_offsets: List[int]
 
-    def __init__(self, template_path: str, options: Dict[str, str] = None):
+    def __init__(self, offsets_path: str, options: Dict[str, str] = None):
         if options is None:
             options = {}
 
         self.true_block = options.get('true_block', BLACK_CONCRETE)
         self.false_block = options.get('false_block', REDSTONE_BLOCK)
-        self.start_block = options.get('start_block', WHITE_WOOL)
-        self.end_block = options.get('end_block', BLUE_WOOL)
-        self.second_block = options.get('second_block', GREEN_WOOL)
 
-        self.template = mcschematic.MCSchematic(template_path)
+        self.init_offsets(offsets_path)
         self.result = mcschematic.MCSchematic()
-        bounds = self.template.getStructure().getBounds()
 
-        print(f'Bounds: {bounds}')
+    def init_offsets(self, offsets_path: str):
+        with open(offsets_path, 'r') as f:
+            lines = f.readlines()
+            self.inner_offsets = list(map(lambda x: int(x), lines[0].strip().split(' ')))
+            self.outer_offsets = list(map(lambda x: int(x), lines[1].strip().split(' ')))
 
-        self.bounds_from = Coord(bounds[0][0], bounds[0][1], bounds[0][2])
-        self.bounds_to = Coord(bounds[1][0], bounds[1][1], bounds[1][2])
-
-        self.start_block_coord = self.find_block(self.start_block)
-        self.second_block_coord = self.find_block(self.second_block)
-        self.end_block_coord = self.find_block(self.end_block)
-
-    def find_block(self, block: str) -> Coord:
-        pass # TODO Implement
-
-    def write_byte2(self, byte: int, address: int):
-        if address >= ROM_SIZE_BYTES:
-            raise Exception(f'Byte address is {address} but only 0-{ROM_SIZE_BYTES-1} byte addresses are supported')
-
-        x_rows = 8
-        y_rows = 8
-        z_rows = 32
-
-        x_spacing = (self.bounds_to.x - self.bounds_from.x) // (x_rows - 1)
-        y_spacing = (self.bounds_to.y - self.bounds_from.y) // (y_rows - 1)
-        z_spacing = (self.bounds_to.z - self.bounds_from.z) // (z_rows - 1)
-
-        print('x,y,z spacing:', x_spacing, y_spacing, z_spacing)
-
-        x = self.bounds_from.x + (address // z_rows) * x_spacing
-        z = self.bounds_from.z + (address % z_rows) * z_spacing
-
-        for i in range(y_rows):
-            y = self.bounds_from.y + i * y_spacing
-            if is_bit_set(byte, i):
-                self.result.setBlock((x, y, z), self.true_block)
-            else:
-                self.result.setBlock((x, y, z), self.false_block)
-
-    def write_byte(self, byte: int, coord: Coord):
+    def write_byte(self, coord: Coord, byte: int):
         y_rows = 8
         y_spacing = 2
         for i in range(y_rows):
@@ -109,25 +58,23 @@ class MCRomBuilder:
             else:
                 self.result.setBlock((coord.x, y, coord.z), self.false_block)
 
-    def is_byte(self, coord: Coord) -> bool:
-        return self.template_at(coord) == self.false_block
-
-    def template_at(self, coord: Coord) -> str:
-        return self.template.getStructure().getBlockDataAt((coord.x, coord.y, coord.z))
-
     def write_data(self, data: List[int]):
-        x_size = abs(self.bounds_to.x - self.bounds_from.x)
-        z_size = abs(self.bounds_to.z - self.bounds_from.z)
+        if len(data) > ROM_SIZE_BYTES:
+            raise Exception(f'Data length is {len(data)} but only {ROM_SIZE_BYTES} bytes are supported')
 
         data_i = 0
+        y = -15
 
-        for i in range(x_size):
-            for j in range(z_size):
-                coord = Coord(i, j, 0)
-                if self.is_byte(coord):
-                    self.write_byte(data[data_i], coord)
-                    data_i += 1
+        for i in range(len(self.outer_offsets)):
+            for j in range(len(self.inner_offsets)):
+                # Swap x and z and adjust sign to write bytes in different directions
+                x = -self.outer_offsets[j]
+                z = -self.inner_offsets[i]
+                self.write_byte(Coord(x, y, z), data[data_i])
+                data_i += 1
 
+                if data_i >= len(data):
+                    return
 
     def save(self, filename: str):
         if filename.endswith('.schem'):
@@ -138,9 +85,6 @@ class MCRomBuilder:
 def inspect_schem(schem_filepath: str, options: Dict[str, str] = None):
     true_block = options.get('true_block', BLACK_CONCRETE)
     false_block = options.get('false_block', REDSTONE_BLOCK)
-    start_block = options.get('start_block', WHITE_WOOL)
-    end_block = options.get('end_block', BLUE_WOOL)
-    second_block = options.get('second_block', GREEN_WOOL)
 
     print('Inspecting schem region...')
 
@@ -184,33 +128,34 @@ def read_csv(csv_filepath: str) -> List[int]:
     return list(map(lambda x: int(x), bytes_str))
 
 
-def read_hex(hex_filepath: str) -> List[int]:
+def read_hex_txt(hex_filepath: str) -> List[int]:
     file_handle = open(hex_filepath, 'r')
     file = file_handle.read()
     bytes_str = file.strip().split(' ')
     return list(map(lambda x: int(x, 16), bytes_str))
 
 
+def read_bin(bin_filepath: str) -> List[int]:
+    file_handle = open(bin_filepath, 'rb')
+    file = file_handle.read()
+    return list(file)
+
+
 if __name__ == '__main__':
     data_path = sys.argv[1]
-    template_path = sys.argv[2]
+    offsets_path = sys.argv[2]
     result_path = sys.argv[3]
-    data = read_hex(data_path)
+    data = read_bin(data_path)
 
     options = {
         'true_block': BLACK_CONCRETE,
         'false_block': REDSTONE_BLOCK,
-        'start_block': WHITE_WOOL,
-        'end_block': BLUE_WOOL,
-        'second_block': GREEN_WOOL,
     }
 
-    builder = MCRomBuilder(template_path=template_path, options=options)
+    builder = MCRomBuilder(offsets_path=offsets_path, options=options)
 
     builder.write_data(data)
     builder.save(result_path)
 
-    print("Inspecting template schematic...")
-    inspect_schem(template_path, options=options)
     print("Inspecting result schematic...")
     inspect_schem(result_path, options=options)

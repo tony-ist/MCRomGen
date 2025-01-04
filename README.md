@@ -5,28 +5,33 @@ This is a python script to generate ROM data for Minecraft CPUs.
 It assumes:
 * You already have a working ROM. 
 * Have WorldEdit enabled.
-* You encode either true or false values with redstone blocks. 
-* No redstone blocks exist in the ROM other than encoding true/false.
-* There is the same amount of bits in each 3D direction (on x, y or z axis).
-* Vertical spacing between values (redstone blocks) is 1 block.
+* You encode either true or false values with redstone blocks.
+* You have only 8 bits vertically.
+* Vertical spacing between values is 1 block.
 
 # Usage
 
-* Replace the bottom bit of first byte with `White Wool`
-* Replace the bottom bit of second byte with `Green Wool`
-* Replace the bottom bit of last byte with `Blue Wool`
-* Copy the ROM template from `White Wool` to the topmost bit of last byte
-* Put your template schematic in `schems/template.schem`
+* Put your offsets pattern in `schems/offsets.txt`
+  * First row is offsets of bytes in one direction
+  * Second row is offsets of rows of bytes in the orthogonal direction
+
+  ```
+  0 2 4 6
+  0 3 6 9 12
+  ```
+
 * Put your binary data to `schems/data.bin`
 * Run the script
 
-```bash
-python3 main.py schems/data.bin schems/template.schem schems/result.schem
-```
+    ```bash
+    python3 main.py schems/data.bin schems/offsets.txt schems/result.schem
+    ```
 
 * The resulting data schematic is placed in `schems/result.schem`
+* Paste it into your ROM with WorldEdit command `//paste -a` 
 
 # TODO
 
 * Support staggering.
 * Support encoding with barrels and other containers.
+* Support diagonal ROM
