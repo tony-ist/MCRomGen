@@ -36,7 +36,7 @@ class MCRomBuilder:
         if options is None:
             options = {}
 
-        self.true_block = options.get('true_block', BLACK_CONCRETE)
+        self.true_block = options.get('true_block', WHITE_GLASS)
         self.false_block = options.get('false_block', REDSTONE_BLOCK)
 
         self.init_offsets(offsets_path)
@@ -68,8 +68,8 @@ class MCRomBuilder:
         for i in range(len(self.outer_offsets)):
             for j in range(len(self.inner_offsets)):
                 # Swap x and z and adjust sign to write bytes in different directions
-                x = -self.outer_offsets[j]
-                z = -self.inner_offsets[i]
+                x = self.outer_offsets[i]
+                z = self.inner_offsets[j]
                 byte = data[data_i] if data_i < len(data) else 0
                 self.write_byte(Coord(x, y, z), byte)
                 data_i += 1
@@ -81,7 +81,7 @@ class MCRomBuilder:
 
 
 def inspect_schem(schem_filepath: str, options: Dict[str, str] = None):
-    true_block = options.get('true_block', BLACK_CONCRETE)
+    true_block = options.get('true_block', WHITE_GLASS)
     false_block = options.get('false_block', REDSTONE_BLOCK)
 
     print('Inspecting schem region...')
@@ -143,11 +143,11 @@ if __name__ == '__main__':
     data_path = sys.argv[1]
     offsets_path = sys.argv[2]
     result_path = sys.argv[3]
-    data = read_bin(data_path)
+    data = read_hex_txt(data_path)
 
     options = {
-        'true_block': BLACK_CONCRETE,
-        'false_block': REDSTONE_BLOCK,
+        'true_block': REDSTONE_BLOCK,
+        'false_block': WHITE_GLASS,
     }
 
     builder = MCRomBuilder(offsets_path=offsets_path, options=options)
