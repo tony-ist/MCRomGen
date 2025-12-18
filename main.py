@@ -5,11 +5,19 @@ import mcschematic
 
 
 WHITE_GLASS = 'minecraft:white_stained_glass'
+WHITE_CONCRETE = 'minecraft:white_concrete'
 REDSTONE_BLOCK = 'minecraft:redstone_block'
 BLACK_CONCRETE = 'minecraft:black_concrete'
 BLUE_WOOL = 'minecraft:blue_wool'
 WHITE_WOOL = 'minecraft:white_wool'
 GREEN_WOOL = 'minecraft:green_wool'
+BARREL_SS_15 = mcschematic.BlockDataDB.BARREL.fromSS(15)
+BARREL_PREFIX = 'minecraft:barrel['
+
+TRUE_BLOCK = BARREL_SS_15
+FALSE_BLOCK = WHITE_CONCRETE
+TRUE_BLOCK_INSPECT = BARREL_PREFIX
+FALSE_BLOCK_INSPECT = FALSE_BLOCK
 
 ROM_SIZE_BYTES = 256
 
@@ -27,18 +35,10 @@ class Coord:
 
 class MCRomBuilder:
     result: mcschematic.MCSchematic
-    true_block: str
-    false_block: str
     inner_offsets: List[int]
     outer_offsets: List[int]
 
-    def __init__(self, offsets_path: str, options: Dict[str, str] = None):
-        if options is None:
-            options = {}
-
-        self.true_block = options.get('true_block', WHITE_GLASS)
-        self.false_block = options.get('false_block', REDSTONE_BLOCK)
-
+    def __init__(self, offsets_path: str):
         self.init_offsets(offsets_path)
         self.result = mcschematic.MCSchematic()
 
@@ -49,21 +49,21 @@ class MCRomBuilder:
             self.outer_offsets = list(map(lambda x: int(x), lines[1].strip().split(' ')))
 
     def write_byte(self, coord: Coord, byte: int):
-        y_rows = 8
+        y_rows = 4
         y_spacing = 2
         for i in range(y_rows):
             y = coord.y + i * y_spacing
             if is_bit_set(byte, i):
-                self.result.setBlock((coord.x, y, coord.z), self.true_block)
+                self.result.setBlock((coord.x, y, coord.z), TRUE_BLOCK)
             else:
-                self.result.setBlock((coord.x, y, coord.z), self.false_block)
+                self.result.setBlock((coord.x, y, coord.z), FALSE_BLOCK)
 
     def write_data(self, data: List[int]):
         if len(data) > ROM_SIZE_BYTES:
             raise Exception(f'Data length is {len(data)} but only {ROM_SIZE_BYTES} bytes are supported')
 
         data_i = 0
-        y = -15
+        y = -7
 
         for i in range(len(self.outer_offsets)):
             for j in range(len(self.inner_offsets)):
@@ -80,10 +80,7 @@ class MCRomBuilder:
         self.result.save(outputFolderPath='', schemName=filename, version=mcschematic.Version.JE_1_18_2)
 
 
-def inspect_schem(schem_filepath: str, options: Dict[str, str] = None):
-    true_block = options.get('true_block', WHITE_GLASS)
-    false_block = options.get('false_block', REDSTONE_BLOCK)
-
+def inspect_schem(schem_filepath: str):
     print('Inspecting schem region...')
 
     true_blocks_amount = 0
@@ -102,17 +99,17 @@ def inspect_schem(schem_filepath: str, options: Dict[str, str] = None):
         for y in range(min_y, max_y+1):
             for z in range(min_z, max_z+1):
                 block = schem.getBlockDataAt((x, y, z))
-                if block == true_block:
+                if block.startswith(TRUE_BLOCK_INSPECT):
                     true_blocks_amount += 1
-                if block == false_block:
+                if block.startswith(FALSE_BLOCK_INSPECT):
                     # print(f'{false_block} at', (x, y, z))
                     false_blocks_amount += 1
     
     print(f'Region min_x, max_x: {min_x}, {max_x}')
     print(f'Region min_y, max_y: {min_y}, {max_y}')
     print(f'Region min_z, max_z: {min_z}, {max_z}')
-    print(f'{true_block} amount:', true_blocks_amount)
-    print(f'{false_block} amount:', false_blocks_amount)
+    print(f'{TRUE_BLOCK_INSPECT} amount:', true_blocks_amount)
+    print(f'{FALSE_BLOCK_INSPECT} amount:', false_blocks_amount)
 
 
 def is_bit_set(byte: int, bit_address: int) -> bool:
@@ -129,7 +126,7 @@ def read_csv(csv_filepath: str) -> List[int]:
 def read_hex_txt(hex_filepath: str) -> List[int]:
     file_handle = open(hex_filepath, 'r')
     file = file_handle.read()
-    bytes_str = file.strip().split(' ')
+    bytes_str = file.strip().split()
     return list(map(lambda x: int(x, 16), bytes_str))
 
 
@@ -145,15 +142,10 @@ if __name__ == '__main__':
     result_path = sys.argv[3]
     data = read_hex_txt(data_path)
 
-    options = {
-        'true_block': REDSTONE_BLOCK,
-        'false_block': WHITE_GLASS,
-    }
-
-    builder = MCRomBuilder(offsets_path=offsets_path, options=options)
+    builder = MCRomBuilder(offsets_path=offsets_path)
 
     builder.write_data(data)
     builder.save(result_path)
 
     print("Inspecting result schematic...")
-    inspect_schem(result_path, options=options)
+    inspect_schem(result_path)

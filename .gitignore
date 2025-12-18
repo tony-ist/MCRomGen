@@ -1,4 +1,5 @@
 .idea/
-schems/
 *.pyc
 data/
+schem/*.hex
+schem/*.schem
