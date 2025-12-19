@@ -2,24 +2,32 @@ import sys
 from typing import Dict, List
 
 import mcschematic
+from dotenv import dotenv_values
 
+env = dotenv_values('.env')
 
-WHITE_GLASS = 'minecraft:white_stained_glass'
-WHITE_CONCRETE = 'minecraft:white_concrete'
-REDSTONE_BLOCK = 'minecraft:redstone_block'
-BLACK_CONCRETE = 'minecraft:black_concrete'
-BLUE_WOOL = 'minecraft:blue_wool'
-WHITE_WOOL = 'minecraft:white_wool'
-GREEN_WOOL = 'minecraft:green_wool'
-BARREL_SS_15 = mcschematic.BlockDataDB.BARREL.fromSS(15)
-BARREL_PREFIX = 'minecraft:barrel['
+BLOCKS = {
+    'WHITE_GLASS': 'minecraft:white_stained_glass',
+    'GLASS': 'minecraft:glass',
+    'WHITE_CONCRETE': 'minecraft:white_concrete',
+    'REDSTONE_BLOCK': 'minecraft:redstone_block',
+    'BLACK_CONCRETE': 'minecraft:black_concrete',
+    'BLUE_WOOL': 'minecraft:blue_wool',
+    'WHITE_WOOL': 'minecraft:white_wool',
+    'GREEN_WOOL': 'minecraft:green_wool',
+    'BARREL_SS_15': mcschematic.BlockDataDB.BARREL.fromSS(15),
+    'BARREL_PREFIX': 'minecraft:barrel[',
+}
 
-TRUE_BLOCK = BARREL_SS_15
-FALSE_BLOCK = WHITE_CONCRETE
-TRUE_BLOCK_INSPECT = BARREL_PREFIX
-FALSE_BLOCK_INSPECT = FALSE_BLOCK
+TRUE_BLOCK = env.get('TRUE_BLOCK') or BLOCKS['BLACK_CONCRETE']
+FALSE_BLOCK = env.get('FALSE_BLOCK') or BLOCKS['WHITE_GLASS']
+TRUE_BLOCK_INSPECT = env.get('TRUE_BLOCK_INSPECT') or TRUE_BLOCK
+FALSE_BLOCK_INSPECT = env.get('FALSE_BLOCK_INSPECT') or FALSE_BLOCK
 
-ROM_SIZE_BYTES = 256
+ROM_SIZE_BYTES = int(env.get('ROM_SIZE_BYTES') or 256)
+
+Y_ROWS = int(env.get('Y_ROWS') or 8)
+Y_SPACING = int(env.get('Y_SPACING') or 2)
 
 
 class Coord:
@@ -49,10 +57,8 @@ class MCRomBuilder:
             self.outer_offsets = list(map(lambda x: int(x), lines[1].strip().split(' ')))
 
     def write_byte(self, coord: Coord, byte: int):
-        y_rows = 4
-        y_spacing = 2
-        for i in range(y_rows):
-            y = coord.y + i * y_spacing
+        for i in range(Y_ROWS):
+            y = coord.y + i * Y_SPACING
             if is_bit_set(byte, i):
                 self.result.setBlock((coord.x, y, coord.z), TRUE_BLOCK)
             else:
@@ -63,7 +69,7 @@ class MCRomBuilder:
             raise Exception(f'Data length is {len(data)} but only {ROM_SIZE_BYTES} bytes are supported')
 
         data_i = 0
-        y = -7
+        y = -(Y_ROWS * Y_SPACING) + 1
 
         for i in range(len(self.outer_offsets)):
             for j in range(len(self.inner_offsets)):

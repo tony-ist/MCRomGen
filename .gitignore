@@ -3,3 +3,4 @@
 data/
 schem/*.hex
 schem/*.schem
+.env
