@@ -43,18 +43,28 @@ class Coord:
 
 class MCRomBuilder:
     result: mcschematic.MCSchematic
-    inner_offsets: List[int]
-    outer_offsets: List[int]
+    groups_amount: int
+    inner_offsets: List[List[int]]
+    outer_offsets: List[List[int]]
 
     def __init__(self, offsets_path: str):
+        self.inner_offsets = []
+        self.outer_offsets = []
         self.init_offsets(offsets_path)
         self.result = mcschematic.MCSchematic()
 
     def init_offsets(self, offsets_path: str):
         with open(offsets_path, 'r') as f:
             lines = f.readlines()
-            self.inner_offsets = list(map(lambda x: int(x), lines[0].strip().split(' ')))
-            self.outer_offsets = list(map(lambda x: int(x), lines[1].strip().split(' ')))
+            if len(lines) % 2 != 0:
+                raise Exception('Offsets file must have an even number of lines')
+            self.groups_amount = len(lines) // 2
+
+            for i in range(self.groups_amount):
+                inner_offsets_row = list(map(lambda x: int(x), lines[i * 2].strip().split(' ')))
+                outer_offsets_row = list(map(lambda x: int(x), lines[i * 2 + 1].strip().split(' ')))
+                self.inner_offsets.append(inner_offsets_row)
+                self.outer_offsets.append(outer_offsets_row)
 
     def write_byte(self, coord: Coord, byte: int):
         for i in range(Y_ROWS):
@@ -71,14 +81,14 @@ class MCRomBuilder:
         data_i = 0
         y = -(Y_ROWS * Y_SPACING) + 1
 
-        for i in range(len(self.outer_offsets)):
-            for j in range(len(self.inner_offsets)):
-                # Swap x and z and adjust sign to write bytes in different directions
-                x = self.outer_offsets[i]
-                z = self.inner_offsets[j]
-                byte = data[data_i] if data_i < len(data) else 0
-                self.write_byte(Coord(x, y, z), byte)
-                data_i += 1
+        for group in range(self.groups_amount):
+            for i in range(len(self.outer_offsets[group])):
+                for j in range(len(self.inner_offsets[group])):
+                    x = self.outer_offsets[group][i]
+                    z = self.inner_offsets[group][j]
+                    byte = data[data_i] if data_i < len(data) else 0
+                    self.write_byte(Coord(x, y, z), byte)
+                    data_i += 1
 
     def save(self, filename: str):
         if filename.endswith('.schem'):

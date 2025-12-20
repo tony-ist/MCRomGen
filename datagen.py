@@ -1,7 +1,7 @@
 def generate_values():
     values = []
     value = 1
-    for i in range(63):
+    for i in range(63*4):
         values.append(f"{value:04X}")
         value <<= 1
 
