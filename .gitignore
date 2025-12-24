@@ -1,6 +1,6 @@
 .idea/
 *.pyc
 data/
-schem/*.hex
-schem/*.schem
+schems/*.hex
+schems/*.schem
 .env
